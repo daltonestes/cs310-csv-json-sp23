@@ -2,6 +2,9 @@ package edu.jsu.mcis.cs310;
 
 import com.github.cliftonlabs.json_simple.*;
 import com.opencsv.*;
+import java.util.*;
+import java.io.StringWriter;
+import java.io.StringReader;
 
 public class Converter {
     
@@ -77,8 +80,46 @@ public class Converter {
         String result = "{}"; // default return value; replace later!
         
         try {
-        
-            // INSERT YOUR CODE HERE
+      
+       CSVReader csvReader = new CSVReader(new StringReader(csvString));
+       List<String[]> full = csvReader.readAll();
+       
+       Iterator<String[]> iterator = full.iterator();
+       
+       JsonArray prodNums = new JsonArray();
+       JsonArray data = new JsonArray();
+       
+       LinkedHashMap<String, Object> jsonRecord = new LinkedHashMap<>();
+       
+       if (iterator.hasNext()){
+           
+           String[] headings = iterator.next();
+           
+           while(iterator.hasNext()){
+               
+               String[] csvRecord = iterator.next();
+               prodNums.add(csvRecord[0]);
+               JsonArray internalDataArray = new JsonArray();
+               
+               for(int i = 1; i < headings.length; ++i){
+                   
+                   if(headings[i].endsWith("Season") || headings[i].endsWith("Episode")){
+                        internalDataArray.add(Integer.valueOf(csvRecord[i]));
+                   }
+                   else{
+                       internalDataArray.add(csvRecord[i]);
+                   }
+               }
+               data.add(internalDataArray);
+           }
+           
+           jsonRecord.put("ProdNums", prodNums);
+           jsonRecord.put("ColHeadings", headings);
+           jsonRecord.put("Data", data);
+       }
+       
+       String jsonString = Jsoner.serialize(jsonRecord);
+       result = jsonString;
             
         }
         catch (Exception e) {
@@ -96,13 +137,64 @@ public class Converter {
         
         try {
             
-            // INSERT YOUR CODE HERE
+        JsonArray prodNums = new JsonArray();
+        JsonArray colHeadings = new JsonArray();
+        JsonArray data = new JsonArray();
+        
+        JsonObject jsonObject = Jsoner.deserialize(jsonString, new JsonObject());
+        
+        prodNums.add(jsonObject.get("ProdNums"));
+        colHeadings.add(jsonObject.get("ColHeadings"));
+        data.add(jsonObject.get("Data"));
+        
+        JsonArray colHeadingsNestedArray = (JsonArray) colHeadings.get(0);
+        String[] colHeadingsString = colHeadingsNestedArray.toArray(new String[colHeadingsNestedArray.size()]);
+        
+        StringWriter writer = new StringWriter();
+        CSVWriter csvWriter = new CSVWriter(writer, ',', '"', '\\', "\n");
+        
+        csvWriter.writeNext(colHeadingsString);
+        String csvString = writer.toString();
+        
+        JsonArray dataNestedArray = (JsonArray) data.get(0);
+        JsonArray prodNumsNestedArray = (JsonArray) prodNums.get(0);
+        
+        System.out.println(dataNestedArray);
+        
+        for (int i = 0; i < dataNestedArray.size(); ++i){
+        
+        JsonArray csvRecord = (JsonArray) dataNestedArray.get(i);
+        String prodNumForRecord = prodNumsNestedArray.get(i).toString();
+        
+        String[] csvRecordString = new String[csvRecord.size()];
+        
+            for (int j = 0; j < csvRecord.size(); j++) {
+               
+            String value = csvRecord.get(j).toString();
             
+            if (j == 2) {
+                
+                value = String.format("%02d", Integer.parseInt(value));
+            }
+            csvRecordString[j] = value;
         }
+        
+            String[] combinedArray = new String[csvRecordString.length + 1];
+            combinedArray[0] = prodNumForRecord;
+            System.arraycopy(csvRecordString, 0, combinedArray, 1, csvRecordString.length);
+            
+            csvWriter.writeNext(combinedArray);
+            csvString = writer.toString();
+        }
+        
+        result = csvString;
+        
+        }
+        
         catch (Exception e) {
             e.printStackTrace();
         }
-        
+
         return result.trim();
         
     }
